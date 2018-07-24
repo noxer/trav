@@ -9,23 +9,28 @@ import (
 // escape is used to detect if the panic was intended to escape the traversal.
 type escape struct{}
 
+// TraverseFile traverses the AST of a Go file, calling f with a
+// slice containing the full path of nodes leading to the current node. The
+// last element is the current node.
+func TraverseFile(name string, f func(Path)) error {
+
+	fset := token.NewFileSet()
+
+	file, err := parser.ParseFile(fset, name, "", parser.ParseComments|parser.AllErrors)
+	if err != nil {
+		return err
+	}
+
+	TraverseNode(file, f)
+
+	return nil
+
+}
+
 // TraverseSource traverses the AST of a Go source string, calling f with a
 // slice containing the full path of nodes leading to the current node. The
 // last element is the current node.
 func TraverseSource(src string, f func(Path)) error {
-
-	defer func() {
-
-		r := recover()
-		if r == nil {
-			return
-		}
-		if _, ok := r.(escape); ok {
-			return
-		}
-		panic(r)
-
-	}()
 
 	fset := token.NewFileSet()
 
@@ -44,6 +49,19 @@ func TraverseSource(src string, f func(Path)) error {
 // slice containing the full path of nodes leading to the current node. The
 // last element is the current node.
 func TraverseNode(node ast.Node, f func(path Path)) {
+
+	defer func() {
+
+		r := recover()
+		if r == nil {
+			return
+		}
+		if _, ok := r.(escape); ok {
+			return
+		}
+		panic(r)
+
+	}()
 
 	path := make([]ast.Node, 0, 100) // plenty of room
 	ast.Inspect(node, func(n ast.Node) bool {
